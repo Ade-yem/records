@@ -3,21 +3,36 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signOut } from "@/lib/components/action";
+import { useCurrentUser } from "@/components/UserProvider";
+import { useToast } from "@/components/ToastProvider";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { PageHeader } from "@/components/PageHeader";
+import { Avatar } from "@/components/Avatar";
+import { Badge } from "@/components/Badge";
+import {
+  AdminIcon,
+  BellIcon,
+  BellOffIcon,
+  LedgerIcon,
+  InventoryIcon,
+  SignOutIcon,
+} from "@/components/Icon";
+import { apiPost } from "@/lib/api/client";
 
-interface UserInfo {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-  role: "admin" | "price_manager" | "staff";
+type PushStatus = "idle" | "loading" | "granted" | "denied";
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-
-
-async function subscribeToPush() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return false;
-  }
+async function subscribeToPush(): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) throw new Error("Push notifications are not configured for this deployment.");
 
   const reg = await navigator.serviceWorker.ready;
   const perm = await Notification.requestPermission();
@@ -25,91 +40,54 @@ async function subscribeToPush() {
 
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-    ),
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
   });
 
-  const pushRes = await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ subscription: sub }),
-  });
-
-  if (!pushRes.ok) {
-    console.error("Failed to save subscription on server", await pushRes.text());
-    return false;
-  }
-
+  await apiPost("/api/push/subscribe", { subscription: sub });
   return true;
 }
 
-async function unsubscribeFromPush() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return false;
-  }
-
+async function unsubscribeFromPush(): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
   const endpoint = sub?.endpoint;
   if (sub) await sub.unsubscribe();
-
-  const pushRes = await fetch("/api/push/unsubscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ endpoint }),
-  });
-
-  return pushRes.ok;
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  await apiPost("/api/push/unsubscribe", { endpoint });
+  return true;
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
-  const [toast, setToast] = useState<string | null>(null);
+  const user = useCurrentUser();
+  const toast = useToast();
+  const [pushStatus, setPushStatus] = useState<PushStatus>("idle");
 
   useEffect(() => {
-    fetch("/api/me")
-      .then(r => r.ok ? r.json() : null)
-      .then(setUser)
-      .finally(() => setLoading(false));
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => {
+        if (sub) setPushStatus("granted");
+      })
+      .catch(console.error);
 
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
-        .then(reg => reg.pushManager.getSubscription())
-        .then(sub => { if (sub) setPushStatus("granted"); })
-        .catch(console.error);
-    }
-
-    if ("Notification" in window) {
-      if (Notification.permission === "granted") setPushStatus("granted");
-      if (Notification.permission === "denied")  setPushStatus("denied");
+    if ("Notification" in window && Notification.permission === "denied") {
+      // External browser API sync; not derivable from React state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPushStatus("denied");
     }
   }, []);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleEnablePush = async () => {
     try {
       setPushStatus("loading");
       const ok = await subscribeToPush();
       setPushStatus(ok ? "granted" : "idle");
-      showToast(ok ? "🔔 Push notifications enabled!" : "❌ Push permission denied");
-    } catch (error) {
-      console.error(error);
+      if (ok) toast.success("Push notifications enabled");
+      else toast.error("Push permission denied");
+    } catch (err) {
       setPushStatus("idle");
-      showToast((error as Error).message);
+      toast.error((err as Error).message);
     }
   };
 
@@ -118,103 +96,99 @@ export default function ProfilePage() {
       setPushStatus("loading");
       await unsubscribeFromPush();
       setPushStatus("idle");
-      showToast("🔕 Push notifications disabled!");
-    } catch (error) {
-      console.error(error);
+      toast.success("Push notifications disabled");
+    } catch (err) {
       setPushStatus("granted");
-      showToast((error as Error).message);
+      toast.error((err as Error).message);
     }
   };
 
-  const initials = user?.name
-    ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-    : user?.email?.[0]?.toUpperCase() ?? "?";
+  if (!user) {
+    return (
+      <main className="page">
+        <PageHeader title="Profile" />
+        <Card>
+          <div style={{ textAlign: "center" }}>
+            <h3>You are not signed in</h3>
+            <Link href="/auth/sign-in" className="btn btn-primary" style={{ marginTop: "1rem" }}>
+              Sign in
+            </Link>
+          </div>
+        </Card>
+      </main>
+    );
+  }
 
   return (
-    <>
-      <main className="page">
-        <header className="page-header">
-          <h1>Profile</h1>
-        </header>
+    <main className="page">
+      <PageHeader title="Profile" />
 
-        {loading ? (
-          <div className="card">Loading profile...</div>
-        ) : user ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'var(--primary)', color: 'white' }}>
-              <div style={{ 
-                width: 80, height: 80, borderRadius: '50%', background: 'white', color: 'var(--primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 800,
-                boxShadow: 'var(--shadow-lg)'
-              }}>
-                {user.image ? <img src={user.image} alt={user.name ?? "avatar"} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : initials}
-              </div>
-              <div>
-                <h2 style={{ color: 'white', marginBottom: '0.25rem' }}>{user.name ?? "Shop Staff"}</h2>
-                <p style={{ opacity: 0.8, marginBottom: '0.75rem' }}>{user.email}</p>
-                <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
-                  {user.role === "admin" ? "👑 Admin" : "Staff Member"}
-                </span>
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 style={{ marginBottom: '1.25rem' }}>Notifications</h3>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Push Alerts</div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    Get real-time alerts for new debts and stock issues.
-                  </p>
-                </div>
-                {pushStatus === "loading" ? (
-                  <button className="btn btn-ghost btn-sm" disabled>Updating...</button>
-                ) : pushStatus === "granted" ? (
-                  <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)", borderColor: "rgba(197, 48, 48, 0.2)" }} onClick={handleDisablePush}>
-                    Disable Alerts
-                  </button>
-                ) : pushStatus === "denied" ? (
-                  <span className="badge badge-danger">Blocked (Reset in Browser)</span>
-                ) : (
-                  <button id="enable-push" className="btn btn-primary btn-sm" onClick={handleEnablePush}>
-                    Enable Alerts
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 style={{ marginBottom: '1.25rem' }}>Account Actions</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <Link href="/ledger" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
-                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 20, height: 20 }}><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                  View Debt Ledger
-                </Link>
-                <Link href="/inventory" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 20, height: 20 }}><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                  Check Inventory
-                </Link>
-                <div style={{ height: '1px', background: 'var(--border)', margin: '0.5rem 0' }}></div>
-                <span onClick={signOut} className="btn btn-ghost" style={{ justifyContent: 'flex-start', color: 'var(--danger)', borderColor: 'rgba(197, 48, 48, 0.2)' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 20, height: 20 }}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9"/></svg>
-                  Sign Out of ShopSync
-                </span>
-              </div>
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <Card style={{ display: "flex", alignItems: "center", gap: "1.5rem", background: "var(--primary)", color: "white" }}>
+          <Avatar name={user.name} email={user.email} src={user.image} size={80} />
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ color: "white", marginBottom: "0.25rem" }}>{user.name ?? "Shop Staff"}</h2>
+            <p style={{ opacity: 0.85, marginBottom: "0.75rem", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</p>
+            <span
+              className="badge"
+              style={{ background: "rgba(255,255,255,0.18)", color: "white", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              {user.role === "admin" ? <AdminIcon size={12} aria-hidden /> : null}
+              {user.role === "admin" ? "Admin" : user.role === "price_manager" ? "Price Manager" : "Staff"}
+            </span>
           </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-            <h3>You are not signed in</h3>
-            <Link href="/auth/sign-in" className="btn btn-primary" style={{ marginTop: '1rem' }}>Sign In</Link>
-          </div>
-        )}
-      </main>
+        </Card>
 
-      {toast && (
-        <div className="toast">
-          {toast}
-        </div>
-      )}
-    </>
+        <Card>
+          <h3 style={{ marginBottom: "1.25rem" }}>Notifications</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Push alerts</div>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                Get real-time alerts for new debts and stock issues.
+              </p>
+            </div>
+            {pushStatus === "loading" ? (
+              <Button variant="ghost" size="sm" loading>
+                Updating
+              </Button>
+            ) : pushStatus === "granted" ? (
+              <Button variant="danger" size="sm" leadingIcon={<BellOffIcon size={16} aria-hidden />} onClick={handleDisablePush}>
+                Disable alerts
+              </Button>
+            ) : pushStatus === "denied" ? (
+              <Badge variant="danger">Blocked (reset in browser)</Badge>
+            ) : (
+              <Button variant="primary" size="sm" leadingIcon={<BellIcon size={16} aria-hidden />} onClick={handleEnablePush}>
+                Enable alerts
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 style={{ marginBottom: "1.25rem" }}>Account</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <Link href="/ledger" className="btn btn-ghost" style={{ justifyContent: "flex-start" }}>
+              <LedgerIcon size={20} aria-hidden />
+              View ledger
+            </Link>
+            <Link href="/inventory" className="btn btn-ghost" style={{ justifyContent: "flex-start" }}>
+              <InventoryIcon size={20} aria-hidden />
+              Check inventory
+            </Link>
+            <div style={{ height: 1, background: "var(--border)", margin: "0.5rem 0" }} />
+            <Button
+              variant="danger"
+              onClick={() => signOut()}
+              leadingIcon={<SignOutIcon size={20} aria-hidden />}
+              style={{ justifyContent: "flex-start" }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </main>
   );
 }

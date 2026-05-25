@@ -16,7 +16,8 @@ export async function getCurrentUser() {
     const { data: session } = await auth.getSession();
     if (!session?.user) return null;
 
-    let role = (session.user as any).role || (session.user as any).metadata?.role || "staff";
+    const u = session.user as { role?: string; metadata?: { role?: string } };
+    let role: string = u.role || u.metadata?.role || "staff";
     if (role === "user") role = "staff";
     if (!["admin", "price_manager", "staff"].includes(role)) role = "staff";
 

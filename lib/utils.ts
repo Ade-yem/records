@@ -1,5 +1,7 @@
+import { CURRENCY, formatMoney } from "./i18n";
+
 export function fmt(n: string | number) {
-  return `₦${Number(n).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 export function timeAgo(iso: string) {
@@ -9,5 +11,5 @@ export function timeAgo(iso: string) {
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
-  return new Date(iso).toLocaleDateString("en-NG", { day: "2-digit", month: "short" });
+  return new Date(iso).toLocaleDateString(CURRENCY.locale, { day: "2-digit", month: "short" });
 }

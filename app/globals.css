@@ -1,7 +1,5 @@
 /* ─── ShopSync Global Design System ─────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -222,56 +220,7 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   margin-top: 4px;
 }
 
-/* ─── Ledger Table/List ─────────────────────────────────────────────────── */
-.ledger-container {
-  background: white;
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border);
-}
-
-.ledger-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  padding: 1rem 1.5rem;
-  background: var(--primary);
-  color: white;
-  font-weight: 600;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-}
-
-@media (max-width: 600px) {
-  .ledger-header { display: none; }
-}
-
-.ledger-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background-color 0.15s;
-  align-items: center;
-}
-
-.ledger-row:nth-child(even) { background-color: var(--row-white); }
-.ledger-row:nth-child(odd) { background-color: var(--row-blue); }
-
-.ledger-row:hover {
-  background-color: #F0F4F8 !important;
-}
-
-@media (max-width: 600px) {
-  .ledger-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-}
-
+/* ─── Ledger Card Bits ──────────────────────────────────────────────────── */
 .ledger-name { font-weight: 700; font-size: 1.05rem; }
 .ledger-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 
@@ -303,9 +252,26 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
 }
 
 .btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+.btn-primary:hover { background: var(--primary-light); }
 .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
 .btn-ghost:hover { background: var(--bg-app); border-color: var(--primary); color: var(--primary); }
+.btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-sm {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.85rem;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: rgba(197, 48, 48, 0.25);
+}
+.btn-danger:hover {
+  background: #FFF5F5;
+  color: var(--danger);
+  border-color: var(--danger);
+}
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
@@ -315,10 +281,12 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   background: white;
   font-family: inherit;
   font-size: 1rem;
-  transition: all 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.form-input:focus {
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
@@ -341,7 +309,13 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   transition: transform 0.2s;
 }
 
-.fab:hover { transform: scale(1.1); background: var(--primary-light); }
+.fab:hover { background: var(--primary-light); }
+@media (prefers-reduced-motion: no-preference) {
+  .fab { transition: transform 0.2s, background-color 0.2s; }
+  .fab:hover { transform: scale(1.08); }
+  .btn-primary { transition: background-color 0.2s, transform 0.15s; }
+  .btn-primary:hover { transform: translateY(-1px); }
+}
 
 @media (min-width: 768px) {
   .fab {
@@ -391,6 +365,7 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
 .badge-warning { background: #FEF3C7; color: #92400E; }
 .badge-danger { background: #FEE2E2; color: #991B1B; }
 .badge-success { background: #DCFCE7; color: #166534; }
+.badge-info { background: #DBEAFE; color: #1E40AF; }
 
 /* ─── Modal ─────────────────────────────────────────────────────────────── */
 .modal-overlay {
@@ -413,12 +388,28 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   padding: 2rem;
   position: relative;
   box-shadow: var(--shadow-lg);
-  animation: modal-slide-in 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-content { animation: modal-slide-in 0.3s ease-out; }
 }
 
 @keyframes modal-slide-in {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ─── Skeleton Loader ───────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #EDF2F7 0%, #F7FAFC 50%, #EDF2F7 100%);
+  background-size: 200% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: skeleton-shimmer 1.4s ease-in-out infinite; }
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────────────── */
@@ -431,7 +422,10 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   position: fixed; bottom: calc(var(--nav-h) + 20px); left: 50%; transform: translateX(-50%);
   background: var(--primary); color: white; padding: 0.75rem 1.5rem; border-radius: 100px;
   box-shadow: var(--shadow-lg); z-index: 200; font-weight: 600; font-size: 0.9rem;
-  animation: toast-slide-in 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: toast-slide-in 0.3s ease-out; }
 }
 
 @keyframes toast-slide-in {

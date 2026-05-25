@@ -3,6 +3,10 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/lib/components/Navigation";
 import { getCurrentUser } from "@/lib/auth/server";
+import { ServiceWorkerInit } from "@/components/ServiceWorkerInit";
+import { UserProvider } from "@/components/UserProvider";
+import { ToastProvider } from "@/components/ToastProvider";
+import type { CurrentUser, UserRole } from "@/lib/types";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -27,20 +31,33 @@ export const viewport: Viewport = {
   themeColor: "#1A365D",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const currentUser = await getCurrentUser();
+  const sessionUser = await getCurrentUser();
+  const currentUser: CurrentUser | null = sessionUser
+    ? {
+        id: sessionUser.id,
+        email: sessionUser.email,
+        name: (sessionUser as { name?: string | null }).name ?? null,
+        image: (sessionUser as { image?: string | null }).image ?? null,
+        role: sessionUser.role as UserRole,
+      }
+    : null;
+
   return (
     <html
       lang="en"
       className={`${outfit.variable} h-full antialiased`}
     >
       <body className="app-container">
-         {currentUser && <Navigation />}
-        {children}
+        <ServiceWorkerInit />
+        <UserProvider user={currentUser}>
+          <ToastProvider>
+            {currentUser && <Navigation />}
+            {children}
+          </ToastProvider>
+        </UserProvider>
       </body>
     </html>
   );
