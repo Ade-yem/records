@@ -15,24 +15,48 @@ import { RecordPaymentModal } from "@/components/modals/RecordPaymentModal";
 import { LedgerIcon, PlusIcon } from "@/components/Icon";
 import { apiGet, ApiError, type ListResponse } from "@/lib/api/client";
 import { fmt, timeAgo } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { User, Calendar } from "lucide-react";
 import type { DebtEntry } from "@/lib/types";
 
 const fetchCustomers = makeCustomerSuggestionFetcher();
+
+const getTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatFriendlyDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(d);
+};
 
 export default function LedgerPage() {
   const toast = useToast();
   const [entries, setEntries] = useState<DebtEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(getTodayString());
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<DebtEntry | null>(null);
+
+  // Debounce search to optimize API performance and database queries
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiGet<ListResponse<DebtEntry>>("/api/debt", {
-        query: { name: search || undefined, date: date || undefined },
+        query: { name: debouncedSearch || undefined, date: date || undefined },
       });
       setEntries(data.items);
     } catch (err) {
@@ -40,13 +64,30 @@ export default function LedgerPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, date, toast]);
+  }, [debouncedSearch, date, toast]);
 
   useEffect(() => {
-    // Replaced by TanStack Query in Phase 5; until then, fetch on mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (value) {
+      setDate(""); // Show full customer history by clearing date filter
+    } else {
+      setDate(getTodayString()); // Revert to today when search is cleared
+    }
+  }, []);
+
+  const handleDateChange = useCallback((value: string) => {
+    if (value) {
+      setDate(value);
+      setSearch(""); // Clear search to show all entries for this specific date
+    } else {
+      setDate(getTodayString()); // Default back to today if date is cleared
+      setSearch("");
+    }
+  }, []);
 
   const { totalBalance, outstanding } = useMemo(() => {
     let total = 0;
@@ -64,7 +105,11 @@ export default function LedgerPage() {
       <main className="page">
         <PageHeader
           title="Ledger"
-          description="Track customer debts and payments."
+          description={
+            search
+              ? `Showing full debt history for "${search}"`
+              : `Showing entries for ${date === getTodayString() ? "today, " : ""}${formatFriendlyDate(date)}`
+          }
           aside={
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>
@@ -92,7 +137,7 @@ export default function LedgerPage() {
               placeholder="Search by customer name..."
               showSearchIcon
               value={search}
-              onChange={setSearch}
+              onChange={handleSearchChange}
               fetchSuggestions={fetchCustomers}
               renderOption={(s) => s}
               getOptionLabel={(s) => s}
@@ -103,40 +148,155 @@ export default function LedgerPage() {
             type="date"
             className="form-input"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => handleDateChange(e.target.value)}
             style={{ flex: 1, minWidth: 150 }}
             aria-label="Filter by date"
           />
-          {date ? (
-            <Button variant="ghost" onClick={() => setDate("")}>
+          {date && date !== getTodayString() ? (
+            <Button variant="ghost" onClick={() => handleDateChange("")}>
               Reset
             </Button>
           ) : null}
         </div>
+
+        {/* ─── Active Filter Badges ───────────────────────────────────────── */}
+        {(search || (date && date !== getTodayString())) && (
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginBottom: "1.5rem",
+              flexWrap: "wrap",
+              alignItems: "center",
+              animation: "modal-slide-in 0.2s ease-out",
+            }}
+          >
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>
+              Active Filters:
+            </span>
+            {search && (
+              <span
+                className="badge badge-info"
+                onClick={() => handleSearchChange("")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 12px",
+                  cursor: "pointer",
+                  borderRadius: "100px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  transition: "transform 0.15s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              >
+                <User size={13} style={{ flexShrink: 0 }} /> Customer: {search}
+                <span style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
+              </span>
+            )}
+            {date && date !== getTodayString() && (
+              <span
+                className="badge badge-warning"
+                onClick={() => handleDateChange("")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 12px",
+                  cursor: "pointer",
+                  borderRadius: "100px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  transition: "transform 0.15s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              >
+                <Calendar size={13} style={{ flexShrink: 0 }} /> Date: {formatFriendlyDate(date)}
+                <span style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setDate(getTodayString());
+              }}
+              style={{ padding: "4px 8px", fontSize: "0.75rem", height: "auto" }}
+            >
+              Clear All
+            </Button>
+          </div>
+        )}
 
         {loading ? (
           <SkeletonList rows={4} rowHeight={140} />
         ) : entries.length === 0 ? (
           <EmptyState
             icon={LedgerIcon}
-            title="No entries found"
-            description="Tap the + button to record a new debt."
+            title={search ? "No records found" : "No entries found today"}
+            description={
+              search
+                ? `There are no recorded debts registered under "${search}".`
+                : "No transactions or active debt entries were registered for today's date."
+            }
+            action={
+              search ? (
+                <Button variant="primary" onClick={() => setShowAdd(true)}>
+                  Create Debt for {search}
+                </Button>
+              ) : (
+                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+                  {date !== getTodayString() ? (
+                    <Button variant="ghost" onClick={() => handleDateChange("")}>
+                      Reset to Today
+                    </Button>
+                  ) : null}
+                  <Button variant="primary" onClick={() => setShowAdd(true)}>
+                    Add Debt Entry
+                  </Button>
+                </div>
+              )
+            }
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {entries.map((e) => {
+            {entries.map((e, idx) => {
               const balance = Number(e.balance);
               const cleared = balance <= 0;
+              const cardBg = idx % 2 === 0 ? "var(--row-white)" : "var(--row-blue)";
               return (
                 <Card
                   key={e.id}
                   onClick={() => setSelected(e)}
-                  style={{ display: "flex", flexDirection: "column", gap: "0.85rem", padding: "1.25rem", cursor: "pointer" }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.85rem",
+                    padding: "1.25rem",
+                    cursor: "pointer",
+                    background: cardBg,
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                  }}
+                  className="ledger-card"
+                  onMouseEnter={(el) => {
+                    el.currentTarget.style.transform = "translateY(-2px)";
+                    el.currentTarget.style.boxShadow = "var(--shadow-lg)";
+                  }}
+                  onMouseLeave={(el) => {
+                    el.currentTarget.style.transform = "translateY(0)";
+                    el.currentTarget.style.boxShadow = "var(--shadow-md)";
+                  }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
                     <div>
                       <div className="ledger-name">{e.customerName}</div>
-                      <div className="ledger-meta">{e.creatorName} • {timeAgo(e.createdAt)}</div>
+                      <div className="ledger-meta">
+                        {e.creatorName} • {timeAgo(e.createdAt)}
+                      </div>
                     </div>
                     <Badge variant={cleared ? "success" : "danger"}>{cleared ? "Cleared" : "Outstanding"}</Badge>
                   </div>
@@ -147,7 +307,7 @@ export default function LedgerPage() {
                       gridTemplateColumns: "1fr 1fr",
                       gap: "1rem",
                       padding: "0.6rem 0.85rem",
-                      background: "var(--primary-soft)",
+                      background: "rgba(26, 54, 93, 0.04)",
                       borderRadius: 8,
                     }}
                   >
@@ -164,7 +324,14 @@ export default function LedgerPage() {
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); setSelected(e); }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        setSelected(e);
+                      }}
+                    >
                       {cleared ? "View payments" : "Record payment"}
                     </Button>
                   </div>
@@ -175,11 +342,7 @@ export default function LedgerPage() {
         )}
       </main>
 
-      <button
-        className="fab"
-        onClick={() => setShowAdd(true)}
-        aria-label="New debt entry"
-      >
+      <button className="fab" onClick={() => setShowAdd(true)} aria-label="New debt entry">
         <PlusIcon size={28} aria-hidden />
       </button>
 
@@ -204,3 +367,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
