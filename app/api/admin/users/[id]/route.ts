@@ -1,62 +1,51 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/db";
+import {
+  HttpError,
+  ok,
+  parseJson,
+  parseParam,
+  requireRole,
+  withErrorHandling,
+} from "@/lib/api/http";
+import { updateUserSchema, uuidSchema } from "@/lib/api/schemas";
 
-const VALID_ROLES = ["admin", "price_manager", "staff"] as const;
+type Ctx = { params: Promise<{ id: string }> };
 
 // PATCH /api/admin/users/[id] — enable/disable access or change role (Admin only)
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (currentUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-  }
+export const PATCH = withErrorHandling(async (req: Request, { params }: Ctx) => {
+  const currentUser = await requireRole("admin");
+  const { id: rawId } = await params;
+  const userId = parseParam(rawId, uuidSchema, "id");
+  const body = await parseJson(req, updateUserSchema);
 
-  const { id: userId } = await params;
-  const { action, role } = await req.json();
+  const isSelf = userId === currentUser.id;
 
-  if (userId === currentUser.id && action !== "set_role") {
-    return NextResponse.json({ error: "Cannot disable or enable your own account" }, { status: 400 });
-  }
-
-  try {
-    if (action === "disable") {
+  if (body.action === "disable" || body.action === "enable") {
+    if (isSelf) {
+      throw new HttpError(400, "Cannot disable or enable your own account");
+    }
+    if (body.action === "disable") {
       await prisma.$executeRaw`
         UPDATE neon_auth.user
         SET banned = true, "banReason" = 'Disabled by admin'
         WHERE id = ${userId}::uuid
       `;
-      return NextResponse.json({ success: true, message: "User access disabled" });
-    } else if (action === "enable") {
-      await prisma.$executeRaw`
-        UPDATE neon_auth.user
-        SET banned = false, "banReason" = NULL, "banExpires" = NULL
-        WHERE id = ${userId}::uuid
-      `;
-      return NextResponse.json({ success: true, message: "User access enabled" });
-    } else if (action === "set_role") {
-      if (!VALID_ROLES.includes(role)) {
-        return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-      }
-      if (userId === currentUser.id && role !== "admin") {
-        return NextResponse.json({ error: "Cannot downgrade your own admin account" }, { status: 400 });
-      }
-      await prisma.$executeRaw`
-        UPDATE neon_auth.user
-        SET role = ${role}
-        WHERE id = ${userId}::uuid
-      `;
-      return NextResponse.json({ success: true, message: `Role updated to ${role}` });
-    } else {
-      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+      return ok({ message: "User access disabled" });
     }
-  } catch (err: any) {
-    console.error("Error updating user:", err);
-    return NextResponse.json({ error: err.message || "Failed to update user" }, { status: 500 });
+    await prisma.$executeRaw`
+      UPDATE neon_auth.user
+      SET banned = false, "banReason" = NULL, "banExpires" = NULL
+      WHERE id = ${userId}::uuid
+    `;
+    return ok({ message: "User access enabled" });
   }
-}
+
+  // set_role
+  if (isSelf && body.role !== "admin") {
+    throw new HttpError(400, "Cannot downgrade your own admin account");
+  }
+  await prisma.$executeRaw`
+    UPDATE neon_auth.user SET role = ${body.role} WHERE id = ${userId}::uuid
+  `;
+  return ok({ message: `Role updated to ${body.role}` });
+});

@@ -140,7 +140,10 @@ export default function AdminUsersPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/users");
-      if (res.ok) setUsers(await res.json());
+      if (res.ok) {
+        const json = await res.json();
+        setUsers(json.items ?? json);
+      }
     } catch (e) {
       console.error(e);
     } finally {

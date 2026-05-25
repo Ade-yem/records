@@ -11,7 +11,7 @@ export interface PushPayload {
  * Silently removes stale subscriptions (410 Gone).
  */
 export async function sendPushNotification(payload: PushPayload, excludeUserId?: string) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.warn("VAPID keys not configured — skipping push notification");
     return;
   }
@@ -24,7 +24,7 @@ export async function sendPushNotification(payload: PushPayload, excludeUserId?:
   const { default: webpush } = await import("web-push");
   webpush.setVapidDetails(
     `mailto:${process.env.VAPID_EMAIL ?? "admin@shopsync.app"}`,
-    process.env.VAPID_PUBLIC_KEY,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
 
@@ -51,5 +51,15 @@ export async function sendPushNotification(payload: PushPayload, excludeUserId?:
  */
 export async function sendAdminPush(payload: PushPayload) {
   return sendPushNotification(payload);
+}
+
+/**
+ * Fire-and-forget wrapper. Use from request handlers so push failures
+ * never fail the user-facing request.
+ */
+export function dispatchPushNotification(payload: PushPayload, excludeUserId?: string) {
+  sendPushNotification(payload, excludeUserId).catch((err) => {
+    console.error("[push] dispatch failed", err);
+  });
 }
 

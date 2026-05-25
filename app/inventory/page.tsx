@@ -280,7 +280,10 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/inventory${showAll ? "?all=true" : ""}`);
-    if (res.ok) setItems(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      setItems(json.items ?? json);
+    }
     setLoading(false);
   }, [showAll]);
 

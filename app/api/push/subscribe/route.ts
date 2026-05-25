@@ -1,19 +1,11 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/server";
+import { ok, parseJson, requireUser, withErrorHandling } from "@/lib/api/http";
+import { pushSubscribeSchema } from "@/lib/api/schemas";
 
-export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const POST = withErrorHandling(async (req: Request) => {
+  const user = await requireUser();
+  const { subscription } = await parseJson(req, pushSubscribeSchema);
 
-  const body = await req.json();
-  const { subscription } = body;
-
-  if (!subscription || !subscription.endpoint) {
-    return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
-  }
-
-  // Save subscription linked to user
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
     update: {
@@ -29,5 +21,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ success: true });
-}
+  return ok({ success: true });
+});

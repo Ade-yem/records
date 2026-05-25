@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 import { signInWithEmail } from "./actions";
-import Link from "next/link";
 
 export default function SignInPage() {
   const [state, formAction, isPending] = useActionState(signInWithEmail, null);

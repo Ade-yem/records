@@ -1,77 +1,54 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser, auth } from "@/lib/auth/server";
+import { auth } from "@/lib/auth/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
+import { HttpError, ok, parseJson, parseQuery, requireRole, withErrorHandling } from "@/lib/api/http";
+import { createUserSchema, paginationSchema, userRoleSchema } from "@/lib/api/schemas";
 
-const VALID_ROLES = ["admin", "price_manager", "staff"] as const;
-type UserRole = (typeof VALID_ROLES)[number];
+type RawUser = { id: string; email: string; name: string | null; role: string | null; banned: boolean | null };
 
-// GET /api/admin/users — list all users (Admin only)
-export async function GET(req: Request) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (currentUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-  }
+// GET /api/admin/users — list all users (Admin only, paginated by name)
+export const GET = withErrorHandling(async (req: Request) => {
+  await requireRole("admin");
+  const { cursor, limit } = parseQuery(req.url, paginationSchema);
 
-  try {
-    const users = await prisma.$queryRaw<any[]>`
-      SELECT id, email, name, role, banned FROM neon_auth.user ORDER BY name ASC`;
+  // Cursor is the last-seen name; we filter strictly greater than it for the next page.
+  const whereClause = cursor ? Prisma.sql`WHERE name > ${cursor}` : Prisma.empty;
+  const users = await prisma.$queryRaw<RawUser[]>(Prisma.sql`
+    SELECT id, email, name, role, banned
+    FROM neon_auth.user
+    ${whereClause}
+    ORDER BY name ASC
+    LIMIT ${limit + 1}
+  `);
 
-    const data = users.map(u => {
-      let role: UserRole;
-      if (u.role === "admin") role = "admin";
-      else if (u.role === "price_manager") role = "price_manager";
-      else role = "staff";
-      return { id: u.id, email: u.email, name: u.name, role, banned: !!u.banned };
-    });
+  const hasMore = users.length > limit;
+  const page = hasMore ? users.slice(0, limit) : users;
+  const nextCursor = hasMore ? page[page.length - 1].name : null;
 
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error listing users:", error);
-    return NextResponse.json({ error: "Failed to list users" }, { status: 500 });
-  }
-}
+  const items = page.map((u) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: userRoleSchema.catch("staff").parse(u.role),
+    banned: !!u.banned,
+  }));
+
+  return ok({ items, nextCursor });
+});
 
 // POST /api/admin/users — create a new user (Admin only)
-export async function POST(req: Request) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const POST = withErrorHandling(async (req: Request) => {
+  await requireRole("admin");
+  const { email, password, name, role } = await parseJson(req, createUserSchema);
+
+  const { error: signupError } = await auth.signUp.email({ email, password, name });
+  if (signupError) {
+    throw new HttpError(400, signupError.message || "Failed to create user account");
   }
-  if (currentUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-  }
 
-  try {
-    const { email, password, name, role } = await req.json();
-    if (!email || !password || !name) {
-      return NextResponse.json({ error: "Email, password, and name are required" }, { status: 400 });
-    }
+  await prisma.$executeRaw`
+    UPDATE neon_auth.user SET role = ${role} WHERE email = ${email}
+  `;
 
-    const newUserRole: UserRole = VALID_ROLES.includes(role) ? role : "staff";
-
-    const { error: signupError } = await auth.signUp.email({
-      email: email.trim().toLowerCase(),
-      password,
-      name: name.trim(),
-    });
-
-    if (signupError) {
-      throw new Error(signupError.message || "Failed to create user account");
-    }
-
-    // Update the role assigned by signup default
-    await prisma.$executeRaw`
-      UPDATE neon_auth.user
-      SET role = ${newUserRole}
-      WHERE email = ${email.trim().toLowerCase()}
-    `;
-
-    return NextResponse.json({ success: true, message: "User account created successfully" }, { status: 201 });
-  } catch (err: any) {
-    console.error("Error creating user:", err);
-    return NextResponse.json({ error: err.message || "Failed to create user" }, { status: 500 });
-  }
-}
+  return ok({ message: "User account created successfully" }, { status: 201 });
+});

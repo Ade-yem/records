@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/lib/components/Navigation";
+import { getCurrentUser } from "@/lib/auth/server";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -31,13 +32,14 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const currentUser = await getCurrentUser();
   return (
     <html
       lang="en"
       className={`${outfit.variable} h-full antialiased`}
     >
       <body className="app-container">
-         <Navigation />
+         {currentUser && <Navigation />}
         {children}
       </body>
     </html>

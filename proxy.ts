@@ -7,17 +7,20 @@ const middleware = auth.middleware({
 });
 
 export default async function authMiddleware(req: any) {
-  // Skip all auth checks in development — getCurrentUser() returns mock admin
-  if (process.env.NODE_ENV === "development") {
-    return NextResponse.next();
-  }
-
   // 1. Check if the user is authenticated at all using the standard Neon Auth middleware
   const response = await middleware(req);
   
   // If the standard middleware redirects (e.g. user is not logged in), return that redirect
-  if (response.status !== 200 && response.headers.has('Location')) {
-    return response;
+  // if (response.status !== 200 && response.headers.has('Location')) {
+  //   return response;
+  // }
+  
+  // 1. If user is authenticated and it is auth path, redirect to home
+  if (req.nextUrl.pathname.startsWith('/auth')) {
+    const { data: session } = await auth.getSession();
+    if (session?.user) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
   }
 
   // 2. If trying to access /admin routes, enforce the admin role

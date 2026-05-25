@@ -12,22 +12,6 @@ export const auth = createNeonAuth({
  * Returns the user object or null if not authenticated.
  */
 export async function getCurrentUser() {
-  const isDevBypass = process.env.NODE_ENV === "development" &&
-    (process.env.NEON_AUTH_BASE_URL?.includes("placeholder") || process.env.NEON_AUTH_BASE_URL?.includes("localhost:3000"));
-
-  if (isDevBypass) {
-    return {
-      id: 'mock-admin-id',
-      email: 'admin@shopsync.com',
-      name: 'Mock Admin User',
-      emailVerified: true,
-      image: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      role: 'admin',
-    };
-  }
-
   try {
     const { data: session } = await auth.getSession();
     if (!session?.user) return null;

@@ -1,16 +1,13 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/server";
-import { sendPushNotification } from "@/lib/push";
+import { dispatchPushNotification } from "@/lib/push";
+import { ok, parseJson, parseQuery, requireUser, withErrorHandling } from "@/lib/api/http";
+import { createDebtSchema, debtListQuerySchema } from "@/lib/api/schemas";
 
-// GET /api/debt — list all debt entries
-export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// GET /api/debt — list debt entries (paginated)
+export const GET = withErrorHandling(async (req: Request) => {
+  await requireUser();
 
-  const { searchParams } = new URL(req.url);
-  const name = searchParams.get("name") ?? "";
-  const date = searchParams.get("date");
+  const { name, date, cursor, limit } = parseQuery(req.url, debtListQuerySchema);
 
   const where: Record<string, unknown> = {};
   if (name) where.customerName = { contains: name, mode: "insensitive" };
@@ -25,39 +22,34 @@ export async function GET(req: Request) {
     where,
     orderBy: { createdAt: "desc" },
     include: { payments: { orderBy: { paidAt: "desc" } } },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
   });
 
-  // Fetch creator names from neon_auth.user
-  const creatorIds = [...new Set(entries.map(e => e.createdBy))];
-  const creators = creatorIds.length > 0
-    ? await prisma.$queryRaw<{ id: string; name: string }[]>`
-        SELECT id, name FROM neon_auth.user WHERE id = ANY(${creatorIds})`
-    : [];
-  const creatorMap = Object.fromEntries(creators.map(c => [c.id, c.name]));
+  const hasMore = entries.length > limit;
+  const page = hasMore ? entries.slice(0, limit) : entries;
+  const nextCursor = hasMore ? page[page.length - 1].id : null;
 
-  const data = entries.map(e => ({
+  const creatorIds = [...new Set(page.map((e) => e.createdBy))];
+  const creators =
+    creatorIds.length > 0
+      ? await prisma.$queryRaw<{ id: string; name: string }[]>`
+          SELECT id, name FROM neon_auth.user WHERE id = ANY(${creatorIds})`
+      : [];
+  const creatorMap = Object.fromEntries(creators.map((c) => [c.id, c.name]));
+
+  const items = page.map((e) => ({
     ...e,
     creatorName: creatorMap[e.createdBy] || "Unknown",
   }));
 
-  return NextResponse.json(data);
-}
+  return ok({ items, nextCursor });
+});
 
 // POST /api/debt — create a new debt entry
-export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json();
-  const { customerName, totalDebt, notes } = body as {
-    customerName: string;
-    totalDebt: number;
-    notes?: string;
-  };
-
-  if (!customerName || !totalDebt) {
-    return NextResponse.json({ error: "customerName and totalDebt are required" }, { status: 400 });
-  }
+export const POST = withErrorHandling(async (req: Request) => {
+  const user = await requireUser();
+  const { customerName, totalDebt, notes } = await parseJson(req, createDebtSchema);
 
   const entry = await prisma.debtEntry.create({
     data: {
@@ -70,14 +62,14 @@ export async function POST(req: Request) {
     },
   });
 
-  await sendPushNotification(
+  dispatchPushNotification(
     {
       title: "💳 New Debt Entry",
-      body: `${customerName} owes ₦${Number(totalDebt).toLocaleString()}`,
+      body: `${customerName} owes ₦${totalDebt.toLocaleString()}`,
       url: "/ledger",
     },
     user.id
   );
 
-  return NextResponse.json(entry, { status: 201 });
-}
+  return ok(entry, { status: 201 });
+});

@@ -1,79 +1,61 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { StockStatus } from "@/app/generated/prisma/client";
-import { getCurrentUser } from "@/lib/auth/server";
-import { sendPushNotification } from "@/lib/push";
+import { StockStatus } from "@/generated/prisma/client";
+import { dispatchPushNotification } from "@/lib/push";
+import { ok, parseJson, parseQuery, requireUser, withErrorHandling } from "@/lib/api/http";
+import { createInventorySchema, inventoryListQuerySchema } from "@/lib/api/schemas";
 
-// GET /api/inventory — list shortage items
-export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// GET /api/inventory — list shortage items (paginated)
+export const GET = withErrorHandling(async (req: Request) => {
+  await requireUser();
+  const { all, cursor, limit } = parseQuery(req.url, inventoryListQuerySchema);
 
-  const { searchParams } = new URL(req.url);
-  const showAll = searchParams.get("all") === "true";
-
-  // Filter out restocked items unless showAll is true
-  const where = showAll ? {} : { NOT: { status: StockStatus.RESTOCKED } };
+  const where = all ? {} : { NOT: { status: StockStatus.RESTOCKED } };
 
   const items = await prisma.inventoryItem.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
   });
 
-  // Fetch reporter names
-  const reporterIds = [...new Set(items.map(i => i.reportedBy))];
-  if (reporterIds.length === 0) return NextResponse.json([]);
+  const hasMore = items.length > limit;
+  const page = hasMore ? items.slice(0, limit) : items;
+  const nextCursor = hasMore ? page[page.length - 1].id : null;
 
-  const reporters = await prisma.$queryRaw<{ id: string; name: string }[]>`
-    SELECT id, name FROM neon_auth.user WHERE id = ANY(${reporterIds})`;
-  const reporterMap = Object.fromEntries(reporters.map(r => [r.id, r.name]));
+  const reporterIds = [...new Set(page.map((i) => i.reportedBy))];
+  const reporters =
+    reporterIds.length > 0
+      ? await prisma.$queryRaw<{ id: string; name: string }[]>`
+          SELECT id, name FROM neon_auth.user WHERE id = ANY(${reporterIds})`
+      : [];
+  const reporterMap = Object.fromEntries(reporters.map((r) => [r.id, r.name]));
 
-  const data = items.map(i => ({
+  const data = page.map((i) => ({
     ...i,
     reporterName: reporterMap[i.reportedBy] || "Unknown",
   }));
 
-  return NextResponse.json(data);
-}
+  return ok({ items: data, nextCursor });
+});
 
 // POST /api/inventory — report a shortage
-export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json();
-  const { itemName, status, quantity } = body as {
-    itemName: string;
-    status: "LOW_STOCK" | "OUT_OF_STOCK";
-    quantity?: number;
-  };
-
-  if (!itemName) {
-    return NextResponse.json({ error: "itemName is required" }, { status: 400 });
-  }
-
-  const stockQuantity = quantity !== undefined ? Number(quantity) : 0;
+export const POST = withErrorHandling(async (req: Request) => {
+  const user = await requireUser();
+  const { itemName, status, quantity } = await parseJson(req, createInventorySchema);
 
   const item = await prisma.inventoryItem.create({
-    data: {
-      itemName: itemName.trim(),
-      status: status || "LOW_STOCK",
-      quantity: stockQuantity,
-      reportedBy: user.id,
-    },
+    data: { itemName, status, quantity, reportedBy: user.id },
   });
 
-  // Notify other workers about the stock alert
   const statusLabel = status === "OUT_OF_STOCK" ? "Out of Stock" : "Low Stock";
-  await sendPushNotification(
+  dispatchPushNotification(
     {
       title: status === "OUT_OF_STOCK" ? "🚨 Out of Stock Alert" : "⚠️ Low Stock Alert",
-      body: `${itemName} reported as ${statusLabel} (${stockQuantity} left).`,
+      body: `${itemName} reported as ${statusLabel} (${quantity} left).`,
       url: "/inventory",
     },
     user.id
   );
 
-  return NextResponse.json(item, { status: 201 });
-}
-
+  return ok(item, { status: 201 });
+});

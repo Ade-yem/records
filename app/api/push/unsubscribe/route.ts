@@ -1,22 +1,18 @@
-import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/server";
+import { ok, parseJson, requireUser, withErrorHandling } from "@/lib/api/http";
 
-export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const unsubscribeSchema = z.object({
+  endpoint: z.string().url().max(2000).optional(),
+});
 
-  const body = await req.json().catch(() => ({}));
-  const { endpoint } = body as { endpoint?: string };
+export const POST = withErrorHandling(async (req: Request) => {
+  const user = await requireUser();
+  const { endpoint } = await parseJson(req, unsubscribeSchema);
 
-  if (endpoint) {
-    await prisma.pushSubscription.deleteMany({
-      where: { userId: user.id, endpoint },
-    });
-  } else {
-    // Fallback: delete all for this user when no endpoint provided
-    await prisma.pushSubscription.deleteMany({ where: { userId: user.id } });
-  }
+  await prisma.pushSubscription.deleteMany({
+    where: endpoint ? { userId: user.id, endpoint } : { userId: user.id },
+  });
 
-  return NextResponse.json({ success: true });
-}
+  return ok({ success: true });
+});

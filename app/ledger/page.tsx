@@ -276,7 +276,10 @@ export default function LedgerPage() {
     if (search) params.set("name", search);
     if (date)   params.set("date", date);
     const res = await fetch(`/api/debt?${params}`);
-    if (res.ok) setEntries(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      setEntries(json.items ?? json);
+    }
     setLoading(false);
   }, [search, date]);
 

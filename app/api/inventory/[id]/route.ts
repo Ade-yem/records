@@ -1,43 +1,37 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/server";
-import { sendPushNotification } from "@/lib/push";
+import { dispatchPushNotification } from "@/lib/push";
+import {
+  noContent,
+  ok,
+  parseJson,
+  parseParam,
+  requireRole,
+  requireUser,
+  withErrorHandling,
+} from "@/lib/api/http";
+import { cuidSchema, updateInventorySchema } from "@/lib/api/schemas";
 
-// PATCH /api/inventory/[id] — update status (e.g. mark as Restocked)
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+type Ctx = { params: Promise<{ id: string }> };
 
-  const { id } = await params;
-  const body = await req.json();
-  const { status, quantity } = body as {
-    status: "LOW_STOCK" | "OUT_OF_STOCK" | "RESTOCKED";
-    quantity?: number;
-  };
+// PATCH /api/inventory/[id] — update status.
+// Intentionally open to any authenticated user: floor staff need to mark
+// items as RESTOCKED without admin involvement. Audit trail lives in
+// updatedAt + push notifications.
+export const PATCH = withErrorHandling(async (req: Request, { params }: Ctx) => {
+  const user = await requireUser();
+  const { id: rawId } = await params;
+  const id = parseParam(rawId, cuidSchema, "id");
+  const { status, quantity } = await parseJson(req, updateInventorySchema);
 
-  if (!status) {
-    return NextResponse.json({ error: "Status is required" }, { status: 400 });
-  }
+  const data: Record<string, unknown> = { status };
+  if (quantity !== undefined) data.quantity = quantity;
+  else if (status === "RESTOCKED") data.quantity = 0;
 
-  const updatedData: Record<string, any> = { status };
-  if (quantity !== undefined) {
-    updatedData.quantity = Number(quantity);
-  } else if (status === "RESTOCKED") {
-    updatedData.quantity = 0; // Reset shortage quantity on restock
-  }
+  const item = await prisma.inventoryItem.update({ where: { id }, data });
 
-  const item = await prisma.inventoryItem.update({
-    where: { id },
-    data: updatedData,
-  });
-
-  // Notify other users about status updates
   const statusLabel =
     status === "OUT_OF_STOCK" ? "Out of Stock" : status === "LOW_STOCK" ? "Low Stock" : "Restocked";
-  await sendPushNotification(
+  dispatchPushNotification(
     {
       title: `📦 Stock Updated: ${item.itemName}`,
       body: `Status changed to ${statusLabel}${status !== "RESTOCKED" ? ` (${item.quantity} left)` : ""}.`,
@@ -46,24 +40,15 @@ export async function PATCH(
     user.id
   );
 
-  return NextResponse.json(item);
-}
-
+  return ok(item);
+});
 
 // DELETE /api/inventory/[id] — remove item (Admin only)
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const DELETE = withErrorHandling(async (_req: Request, { params }: Ctx) => {
+  await requireRole("admin");
+  const { id: rawId } = await params;
+  const id = parseParam(rawId, cuidSchema, "id");
 
-  if (user.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { id } = await params;
   await prisma.inventoryItem.delete({ where: { id } });
-
-  return new NextResponse(null, { status: 204 });
-}
+  return noContent();
+});

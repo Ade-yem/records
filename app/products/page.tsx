@@ -155,7 +155,10 @@ export default function ProductsPage() {
   const load = async () => {
     setLoading(true);
     const res = await fetch("/api/products");
-    if (res.ok) setProducts(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      setProducts(json.items ?? json);
+    }
     setLoading(false);
   };
 

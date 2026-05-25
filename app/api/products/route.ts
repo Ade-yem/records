@@ -1,76 +1,53 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/server";
-import { sendPushNotification } from "@/lib/push";
+import { dispatchPushNotification } from "@/lib/push";
+import { ok, parseJson, parseQuery, requireRole, requireUser, withErrorHandling } from "@/lib/api/http";
+import { createProductSchema, paginationSchema } from "@/lib/api/schemas";
 
-// GET /api/products — list all products
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// GET /api/products — list all products (paginated)
+export const GET = withErrorHandling(async (req: Request) => {
+  await requireUser();
+  const { cursor, limit } = parseQuery(req.url, paginationSchema);
 
-  try {
-    const products = await prisma.product.findMany({
-      orderBy: { name: "asc" },
-    });
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("Error listing products:", error);
-    return NextResponse.json({ error: "Failed to list products" }, { status: 500 });
-  }
-}
+  const products = await prisma.product.findMany({
+    orderBy: { name: "asc" },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+  });
+
+  const hasMore = products.length > limit;
+  const items = hasMore ? products.slice(0, limit) : products;
+  const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+  return ok({ items, nextCursor });
+});
 
 // POST /api/products — create a new product (admin or price_manager only)
-export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["admin", "price_manager"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden: requires admin or price_manager role" }, { status: 403 });
-  }
+export const POST = withErrorHandling(async (req: Request) => {
+  const user = await requireRole("admin", "price_manager");
+  const { name, priceUnit, unitName, priceBulk, bulkName } = await parseJson(
+    req,
+    createProductSchema
+  );
 
-  try {
-    const body = await req.json();
-    const { name, priceUnit, unitName, priceBulk, bulkName } = body as {
-      name: string;
-      priceUnit: number;
-      unitName?: string;
-      priceBulk: number;
-      bulkName?: string;
-    };
+  const product = await prisma.product.create({
+    data: {
+      name,
+      priceUnit,
+      unitName: unitName || "pcs",
+      priceBulk,
+      bulkName: bulkName || "carton",
+      createdBy: user.id,
+    },
+  });
 
-    if (!name || priceUnit === undefined || priceBulk === undefined) {
-      return NextResponse.json(
-        { error: "Product name, unit price, and bulk price are required" },
-        { status: 400 }
-      );
-    }
+  dispatchPushNotification(
+    {
+      title: "🏷️ New Price Added",
+      body: `${name}: ₦${priceUnit.toLocaleString()}/${unitName || "pcs"} (Bulk: ₦${priceBulk.toLocaleString()}/${bulkName || "carton"})`,
+      url: "/products",
+    },
+    user.id
+  );
 
-    const product = await prisma.product.create({
-      data: {
-        name: name.trim(),
-        priceUnit,
-        unitName: unitName?.trim() || "pcs",
-        priceBulk,
-        bulkName: bulkName?.trim() || "carton",
-        createdBy: user.id,
-      },
-    });
-
-    // Notify other workers about the price list addition
-    await sendPushNotification(
-      {
-        title: "🏷️ New Price Added",
-        body: `${name}: ₦${Number(priceUnit).toLocaleString()}/${unitName || "pcs"} (Bulk: ₦${Number(priceBulk).toLocaleString()}/${bulkName || "carton"})`,
-        url: "/products",
-      },
-      user.id // Exclude the current user
-    );
-
-    return NextResponse.json(product, { status: 201 });
-  } catch (error: any) {
-    console.error("Error creating product:", error);
-    if (error.code === "P2002") {
-      return NextResponse.json({ error: "A product with this name already exists" }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
-  }
-}
+  return ok(product, { status: 201 });
+});

@@ -52,3 +52,4 @@ package-lock.json
 # claude code
 .agents/
 skills-lock.json
+generated/
