@@ -14,8 +14,6 @@ import {
   AdminIcon,
   BellIcon,
   BellOffIcon,
-  LedgerIcon,
-  InventoryIcon,
   SignOutIcon,
 } from "@/components/Icon";
 import { apiPost } from "@/lib/api/client";
@@ -169,19 +167,15 @@ export default function ProfilePage() {
         <Card>
           <h3 style={{ marginBottom: "1.25rem" }}>Account</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <Link href="/ledger" className="btn btn-ghost" style={{ justifyContent: "flex-start" }}>
-              <LedgerIcon size={20} aria-hidden />
-              View ledger
-            </Link>
-            <Link href="/inventory" className="btn btn-ghost" style={{ justifyContent: "flex-start" }}>
-              <InventoryIcon size={20} aria-hidden />
-              Check inventory
-            </Link>
-            <div style={{ height: 1, background: "var(--border)", margin: "0.5rem 0" }} />
+            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", padding: "0 0.25rem" }}>
+              Signed in as <strong style={{ color: "var(--text-primary)" }}>{user.email}</strong>
+            </div>
+            <div style={{ height: 1, background: "var(--border)", margin: "0.25rem 0" }} />
             <Button
               variant="danger"
               onClick={() => signOut()}
               leadingIcon={<SignOutIcon size={20} aria-hidden />}
+              loadingText="Signing out…"
               style={{ justifyContent: "flex-start" }}
             >
               Sign out

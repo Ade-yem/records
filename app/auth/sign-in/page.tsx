@@ -44,7 +44,7 @@ export default function SignInPage() {
 
           {state?.error ? <Alert variant="danger">{state.error}</Alert> : null}
 
-          <Button type="submit" variant="primary" fullWidth loading={isPending}>
+          <Button type="submit" variant="primary" fullWidth loading={isPending} loadingText="Signing in…">
             Sign in
           </Button>
         </form>

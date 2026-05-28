@@ -175,48 +175,26 @@ export default function LedgerPage() {
               Active Filters:
             </span>
             {search && (
-              <span
-                className="badge badge-info"
+              <button
+                type="button"
+                className="badge badge-info filter-chip"
                 onClick={() => handleSearchChange("")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 12px",
-                  cursor: "pointer",
-                  borderRadius: "100px",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  transition: "transform 0.15s ease",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                aria-label={`Remove customer filter: ${search}`}
               >
-                <User size={13} style={{ flexShrink: 0 }} /> Customer: {search}
-                <span style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
-              </span>
+                <User size={13} style={{ flexShrink: 0 }} aria-hidden /> Customer: {search}
+                <span aria-hidden style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
+              </button>
             )}
             {date && date !== getTodayString() && (
-              <span
-                className="badge badge-warning"
+              <button
+                type="button"
+                className="badge badge-warning filter-chip"
                 onClick={() => handleDateChange("")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 12px",
-                  cursor: "pointer",
-                  borderRadius: "100px",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  transition: "transform 0.15s ease",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                aria-label={`Remove date filter: ${formatFriendlyDate(date)}`}
               >
-                <Calendar size={13} style={{ flexShrink: 0 }} /> Date: {formatFriendlyDate(date)}
-                <span style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
-              </span>
+                <Calendar size={13} style={{ flexShrink: 0 }} aria-hidden /> Date: {formatFriendlyDate(date)}
+                <span aria-hidden style={{ fontWeight: 800, fontSize: "0.85rem", opacity: 0.7 }}>&times;</span>
+              </button>
             )}
             <Button
               variant="ghost"

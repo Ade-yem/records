@@ -88,7 +88,7 @@ export function ToastProvider({ children, duration = 3000 }: { children: ReactNo
           left: "50%",
           transform: "translateX(-50%)",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: "column-reverse",
           gap: 8,
           zIndex: 200,
           maxWidth: "calc(100vw - 2rem)",

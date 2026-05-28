@@ -7,6 +7,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  loadingText?: string;
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
   fullWidth?: boolean;
@@ -23,6 +24,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant = "primary",
     size = "md",
     loading = false,
+    loadingText = "Saving…",
     disabled,
     leadingIcon,
     trailingIcon,
@@ -56,7 +58,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {...rest}
     >
       {leadingIcon ? <span aria-hidden>{leadingIcon}</span> : null}
-      <span>{loading ? "Saving…" : children}</span>
+      <span>{loading ? loadingText : children}</span>
       {trailingIcon && !loading ? <span aria-hidden>{trailingIcon}</span> : null}
     </button>
   );

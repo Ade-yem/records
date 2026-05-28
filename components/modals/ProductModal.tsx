@@ -57,7 +57,8 @@ export function ProductModal({ open, product, onClose, onSaved }: ProductModalPr
   return (
     <Modal
       open={open}
-      onClose={loading ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={loading}
       title={product ? "Edit product" : "Add product"}
       description="Set name, unit price, and bulk price."
     >

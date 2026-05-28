@@ -367,6 +367,23 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
 .badge-success { background: #DCFCE7; color: #166534; }
 .badge-info { background: #DBEAFE; color: #1E40AF; }
 
+/* Clickable filter chip — inherits badge style, adds interactive behaviour */
+.filter-chip {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 100px;
+  transition: transform 0.15s ease, filter 0.15s;
+}
+.filter-chip:hover { filter: brightness(0.93); transform: scale(1.03); }
+.filter-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 /* ─── Modal ─────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;

@@ -104,8 +104,14 @@ export default function ProductsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={PricesIcon}
-            title="No products yet"
-            description="Tap the + button to add products and set prices."
+            title={search ? "No products match your search" : "No products yet"}
+            description={
+              search
+                ? `No products found for "${search}".`
+                : canEdit
+                ? "Tap the + button to add products and set prices."
+                : "No products have been added to the catalog yet. Ask your price manager or admin to add items."
+            }
             action={canEdit ? (
               <Button variant="primary" leadingIcon={<PlusIcon size={16} aria-hidden />} onClick={() => { setEditing(null); setModalOpen(true); }}>
                 Add product

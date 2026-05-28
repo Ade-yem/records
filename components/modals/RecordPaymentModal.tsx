@@ -47,7 +47,7 @@ export function RecordPaymentModal({ open, entry, onClose, onSaved }: RecordPaym
   if (!entry) return null;
 
   return (
-    <Modal open={open} onClose={loading ? () => {} : onClose} title="Record payment" description={entry.customerName}>
+    <Modal open={open} onClose={onClose} closeDisabled={loading} title="Record payment" description={entry.customerName}>
       {error ? <div style={{ marginBottom: "1rem" }}><Alert variant="danger">{error}</Alert></div> : null}
 
       <div

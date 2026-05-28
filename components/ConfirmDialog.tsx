@@ -52,6 +52,7 @@ export function ConfirmDialog({
           fullWidth
           onClick={handleConfirm}
           loading={pending}
+          loadingText="Please wait…"
         >
           {confirmLabel}
         </Button>

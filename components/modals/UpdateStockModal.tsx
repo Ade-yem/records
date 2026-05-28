@@ -52,7 +52,7 @@ export function UpdateStockModal({ open, item, onClose, onSaved }: UpdateStockMo
   if (!item) return null;
 
   return (
-    <Modal open={open} onClose={loading ? () => {} : onClose} title="Update stock" description={item.itemName}>
+    <Modal open={open} onClose={onClose} closeDisabled={loading} title="Update stock" description={item.itemName}>
       {error ? <div style={{ marginBottom: "1rem" }}><Alert variant="danger">{error}</Alert></div> : null}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem" }}>

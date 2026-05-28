@@ -5,6 +5,8 @@ import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 interface ModalProps {
   open: boolean;
   onClose: () => void;
+  /** When true, the X button and backdrop click are disabled (use during async operations). */
+  closeDisabled?: boolean;
   title: string;
   description?: string;
   children: ReactNode;
@@ -18,7 +20,7 @@ const SIZE_PX: Record<NonNullable<ModalProps["size"]>, number> = {
   lg: 720,
 };
 
-export function Modal({ open, onClose, title, description, children, size = "md", initialFocusRef }: ModalProps) {
+export function Modal({ open, onClose, closeDisabled = false, title, description, children, size = "md", initialFocusRef }: ModalProps) {
   const headingId = useId();
   const descId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -92,7 +94,7 @@ export function Modal({ open, onClose, title, description, children, size = "md"
     <div
       className="modal-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (!closeDisabled && e.target === e.currentTarget) handleClose();
       }}
     >
       <div
@@ -119,6 +121,7 @@ export function Modal({ open, onClose, title, description, children, size = "md"
             type="button"
             className="modal-close-btn"
             onClick={handleClose}
+            disabled={closeDisabled}
             aria-label="Close dialog"
           >
             ✕
