@@ -88,37 +88,51 @@ export default function InventoryPage() {
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {items.map((item) => (
-              <Card
-                key={item.id}
-                onClick={() => setSelected(item)}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                  padding: "1.25rem",
-                  cursor: "pointer",
-                  opacity: item.status === "RESTOCKED" ? 0.65 : 1,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>{item.itemName}</h3>
-                  <StatusBadge status={item.status} />
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <div>
-                    {timeAgo(item.createdAt)}
-                    {item.status !== "RESTOCKED" ? (
-                      <span style={{ fontWeight: 700, color: "var(--danger)" }}>
-                        {" "}• {item.quantity} remaining
-                      </span>
-                    ) : null}
+            {items.map((item) => {
+              const restocked = item.status === "RESTOCKED";
+              return (
+                <Card
+                  key={item.id}
+                  onClick={() => setSelected(item)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                    padding: "1.25rem",
+                    cursor: "pointer",
+                    // Resolved items get a green left accent instead of blanket opacity
+                    // so they don't look disabled/unclickable
+                    borderLeft: restocked ? "3px solid var(--success)" : undefined,
+                    background: restocked ? "#F0FFF4" : undefined,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
+                    <h3
+                      style={{
+                        fontSize: "1.1rem",
+                        fontWeight: restocked ? 500 : 700,
+                        color: restocked ? "var(--text-secondary)" : undefined,
+                      }}
+                    >
+                      {item.itemName}
+                    </h3>
+                    <StatusBadge status={item.status} />
                   </div>
-                  <div>Reported by {item.reporterName}</div>
-                </div>
-              </Card>
-            ))}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div>
+                      {timeAgo(item.createdAt)}
+                      {!restocked ? (
+                        <span style={{ fontWeight: 700, color: "var(--danger)" }}>
+                          {" "}• {item.quantity} remaining
+                        </span>
+                      ) : null}
+                    </div>
+                    <div>Reported by {item.reporterName}</div>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>

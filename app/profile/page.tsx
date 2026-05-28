@@ -104,7 +104,7 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <main className="page">
-        <PageHeader title="Profile" />
+        <PageHeader title="Account" />
         <Card>
           <div style={{ textAlign: "center" }}>
             <h3>You are not signed in</h3>
@@ -119,7 +119,7 @@ export default function ProfilePage() {
 
   return (
     <main className="page">
-      <PageHeader title="Profile" />
+      <PageHeader title="Account" />
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         <Card style={{ display: "flex", alignItems: "center", gap: "1.5rem", background: "var(--primary)", color: "white" }}>

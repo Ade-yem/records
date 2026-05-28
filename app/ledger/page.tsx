@@ -40,6 +40,18 @@ const formatFriendlyDate = (dateStr: string) => {
   }).format(d);
 };
 
+// Short form used in the page header — won't wrap on small phones
+const formatShortDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d); // e.g. "Mon 26 May 2025"
+};
+
 export default function LedgerPage() {
   const toast = useToast();
   const [entries, setEntries] = useState<DebtEntry[]>([]);
@@ -107,8 +119,10 @@ export default function LedgerPage() {
           title="Ledger"
           description={
             search
-              ? `Showing full debt history for "${search}"`
-              : `Showing entries for ${date === getTodayString() ? "today, " : ""}${formatFriendlyDate(date)}`
+              ? `"${search}" — all dates`
+              : date === getTodayString()
+              ? "Today's entries"
+              : formatShortDate(date)
           }
           aside={
             <div style={{ textAlign: "right" }}>
@@ -128,7 +142,7 @@ export default function LedgerPage() {
           <StatCard label="Cleared" value={entries.length - outstanding} tone="success" />
         </section>
 
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", gap: "1rem", marginBottom: search && !date ? "0.5rem" : "1.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: 2, minWidth: 200 }}>
             <Autocomplete<string>
               label="Search customers"
@@ -149,8 +163,10 @@ export default function LedgerPage() {
             className="form-input"
             value={date}
             onChange={(e) => handleDateChange(e.target.value)}
-            style={{ flex: 1, minWidth: 150 }}
+            style={{ flex: 1, minWidth: 150, opacity: search ? 0.45 : 1, transition: "opacity 0.2s" }}
             aria-label="Filter by date"
+            aria-disabled={!!search}
+            title={search ? "Date filter is paused while searching by name" : undefined}
           />
           {date && date !== getTodayString() ? (
             <Button variant="ghost" onClick={() => handleDateChange("")}>
@@ -158,6 +174,23 @@ export default function LedgerPage() {
             </Button>
           ) : null}
         </div>
+
+        {/* Explain that searching by name shows all dates */}
+        {search && !date ? (
+          <p
+            style={{
+              fontSize: "0.8rem",
+              color: "var(--text-muted)",
+              marginBottom: "1.25rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}
+          >
+            <Calendar size={13} aria-hidden style={{ flexShrink: 0 }} />
+            Searching by name shows the full history across all dates. Select a date above to filter further.
+          </p>
+        ) : null}
 
         {/* ─── Active Filter Badges ───────────────────────────────────────── */}
         {(search || (date && date !== getTodayString())) && (

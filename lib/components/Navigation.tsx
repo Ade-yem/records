@@ -24,7 +24,7 @@ const BASE_NAV_ITEMS: NavItem[] = [
   { href: "/ledger", label: "Ledger", icon: LedgerIcon },
   { href: "/inventory", label: "Inventory", icon: InventoryIcon },
   { href: "/products", label: "Prices", icon: PricesIcon },
-  { href: "/profile", label: "Profile", icon: ProfileIcon },
+  { href: "/profile", label: "Account", icon: ProfileIcon },
 ];
 
 export function Navigation() {
