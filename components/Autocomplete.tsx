@@ -170,7 +170,7 @@ export function Autocomplete<T>({
             top: "100%",
             left: 0,
             right: 0,
-            background: "white",
+            background: "var(--bg-card)",
             border: "1px solid var(--border)",
             borderRadius: 8,
             marginTop: 4,

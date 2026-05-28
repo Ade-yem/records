@@ -24,9 +24,16 @@ export function Modal({ open, onClose, title, description, children, size = "md"
   const contentRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
-  const handleClose = useCallback(() => onClose(), [onClose]);
+  // Keep a ref to onClose so the effect never needs it as a dependency.
+  // This prevents the effect from re-running (and re-focusing the first input)
+  // whenever the parent re-renders and passes a fresh onClose arrow function.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const handleClose = useCallback(() => onCloseRef.current(), []);
 
-  // Escape to close + lock body scroll
+  // Escape to close + lock body scroll + initial focus.
+  // Runs only when `open` flips or `initialFocusRef` changes — NOT on every
+  // parent render — because handleClose is now permanently stable.
   useEffect(() => {
     if (!open) return;
     triggerRef.current = document.activeElement as HTMLElement | null;
@@ -41,7 +48,6 @@ export function Modal({ open, onClose, title, description, children, size = "md"
     };
     document.addEventListener("keydown", onKey);
 
-    // Initial focus
     const focusTarget = initialFocusRef?.current
       ?? contentRef.current?.querySelector<HTMLElement>(
         "input, select, textarea, button, [tabindex]:not([tabindex='-1'])",
@@ -98,15 +104,29 @@ export function Modal({ open, onClose, title, description, children, size = "md"
         aria-describedby={description ? descId : undefined}
         style={{ maxWidth: SIZE_PX[size] }}
       >
-        <h2 id={headingId} style={{ marginBottom: description ? "0.25rem" : "1.5rem" }}>
-          {title}
-        </h2>
-        {description ? (
-          <p id={descId} style={{ color: "var(--text-muted)", marginBottom: "1.25rem", fontSize: "0.9rem" }}>
-            {description}
-          </p>
-        ) : null}
-        {children}
+        <div className="modal-header">
+          <div>
+            <h2 id={headingId} style={{ marginBottom: description ? "0.25rem" : 0 }}>
+              {title}
+            </h2>
+            {description ? (
+              <p id={descId} style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginTop: "0.15rem" }}>
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="modal-close-btn"
+            onClick={handleClose}
+            aria-label="Close dialog"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="modal-body">
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -5,9 +5,7 @@ const isProd = process.env.NODE_ENV === "production";
 const baseConfig = {
   reactStrictMode: true,
   turbopack: {},           // suppress Turbopack/webpack warning
-  experimental: {
-    serverActions: { allowedOrigins: ["localhost:3000"] },
-  },
+  experimental: {},
   async headers() {
     return [
       {

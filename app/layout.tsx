@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navigation } from "@/lib/components/Navigation";
 import { getCurrentUser } from "@/lib/auth/server";
 import { ServiceWorkerInit } from "@/components/ServiceWorkerInit";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { UserProvider } from "@/components/UserProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import type { CurrentUser, UserRole } from "@/lib/types";
@@ -50,8 +51,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang="en"
       className={`${outfit.variable} h-full antialiased`}
     >
+      <head>
+        {/* Capture beforeinstallprompt before React hydrates so we never miss it */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaPrompt=e;});`,
+          }}
+        />
+      </head>
       <body className="app-container">
         <ServiceWorkerInit />
+        <InstallPrompt />
         <UserProvider user={currentUser}>
           <ToastProvider>
             {currentUser && <Navigation />}
