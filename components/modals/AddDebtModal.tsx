@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/Modal";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
@@ -16,10 +16,17 @@ interface AddDebtModalProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  initialName?: string;
 }
 
-export function AddDebtModal({ open, onClose, onSaved }: AddDebtModalProps) {
+export function AddDebtModal({ open, onClose, onSaved, initialName }: AddDebtModalProps) {
   const [name, setName] = useState("");
+  const initialNameRef = useRef(initialName);
+  initialNameRef.current = initialName;
+
+  useEffect(() => {
+    if (open && initialNameRef.current) setName(initialNameRef.current);
+  }, [open]);
   const [total, setTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);

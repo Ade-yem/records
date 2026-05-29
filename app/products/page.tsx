@@ -81,7 +81,13 @@ export default function ProductsPage() {
       <main className="page">
         <PageHeader
           title="Products & prices"
-          description="Search items and update current store prices."
+          description={
+            loading
+              ? "Loading catalog…"
+              : search && filtered.length !== products.length
+              ? `${filtered.length} of ${products.length} ${products.length === 1 ? "product" : "products"}`
+              : `${products.length} ${products.length === 1 ? "product" : "products"} in catalog`
+          }
         />
 
         <div style={{ marginBottom: "1.5rem" }}>

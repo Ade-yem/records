@@ -6,7 +6,8 @@ import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { InputField } from "@/components/FormField";
 import { apiDelete, apiPatch, ApiError } from "@/lib/api/client";
-import { fmt, timeAgo } from "@/lib/utils";
+import { fmt } from "@/lib/utils";
+import { TimeAgo } from "@/components/TimeAgo";
 import { CURRENCY } from "@/lib/i18n";
 import { useCurrentUser } from "@/components/UserProvider";
 import type { DebtEntry } from "@/lib/types";
@@ -133,13 +134,20 @@ export function RecordPaymentModal({ open, entry, onClose, onSaved, onDeleted, o
                 style={{
                   padding: "0.75rem",
                   borderBottom: "1px solid var(--border)",
-                  display: "flex",
-                  justifyContent: "space-between",
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto",
+                  gap: "0.5rem",
+                  alignItems: "center",
                   fontSize: "0.85rem",
                 }}
               >
                 <span className="text-success" style={{ fontWeight: 700 }}>+{fmt(p.amount)}</span>
-                <span style={{ color: "var(--text-muted)" }}>{timeAgo(p.paidAt)}</span>
+                {p.note ? (
+                  <span style={{ color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.note}
+                  </span>
+                ) : <span />}
+                <span style={{ color: "var(--text-muted)", whiteSpace: "nowrap" }}><TimeAgo iso={p.paidAt} /></span>
               </div>
             ))}
           </div>

@@ -15,7 +15,8 @@ import { RecordPaymentModal } from "@/components/modals/RecordPaymentModal";
 import { EditDebtModal } from "@/components/modals/EditDebtModal";
 import { LedgerIcon, PlusIcon } from "@/components/Icon";
 import { apiGet, ApiError, type ListResponse } from "@/lib/api/client";
-import { fmt, timeAgo } from "@/lib/utils";
+import { fmt } from "@/lib/utils";
+import { TimeAgo } from "@/components/TimeAgo";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { User, Calendar } from "lucide-react";
 import type { DebtEntry } from "@/lib/types";
@@ -328,7 +329,10 @@ export default function LedgerPage() {
                     <div>
                       <div className="ledger-name">{e.customerName}</div>
                       <div className="ledger-meta">
-                        {e.creatorName} • {timeAgo(e.createdAt)}
+                        {e.creatorName} • <TimeAgo iso={e.createdAt} />
+                        {e.updatedAt !== e.createdAt ? (
+                          <> · updated <TimeAgo iso={e.updatedAt} /></>
+                        ) : null}
                       </div>
                       {e.notes ? (
                         <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 2, fontStyle: "italic" }}>
@@ -387,6 +391,7 @@ export default function LedgerPage() {
       <AddDebtModal
         open={showAdd}
         onClose={() => setShowAdd(false)}
+        initialName={search}
         onSaved={() => {
           load();
           toast.success("Debt entry saved");

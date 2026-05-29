@@ -600,6 +600,12 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   to { transform: translateY(0) translateX(-50%); opacity: 1; }
 }
 
+/* ─── Interactive card focus ring (A-01) ────────────────────────────────── */
+.card[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* ─── Active nav indicator (A-03) ───────────────────────────────────────── */
 .nav-item {
   position: relative;
