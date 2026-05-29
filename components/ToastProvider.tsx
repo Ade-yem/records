@@ -52,7 +52,8 @@ export function ToastProvider({ children, duration = 3000 }: { children: ReactNo
     (message: string, variant: ToastVariant = "info") => {
       const id = ++counter.current;
       setToasts((prev) => [...prev, { id, message, variant }]);
-      const timer = setTimeout(() => dismiss(id), duration);
+      const effectiveDuration = variant === "danger" ? Math.max(duration, 6000) : duration;
+      const timer = setTimeout(() => dismiss(id), effectiveDuration);
       timers.current.set(id, timer);
     },
     [dismiss, duration],

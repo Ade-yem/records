@@ -236,7 +236,7 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   flex-direction: column;
 }
 
-.ledger-amount-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
+.ledger-amount-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
 .ledger-amount-value { font-weight: 800; font-size: 1rem; color: var(--text-number); }
 
 /* ─── Form Elements ─────────────────────────────────────────────────────── */
@@ -598,4 +598,67 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
 @keyframes toast-slide-in {
   from { transform: translateY(20px) translateX(-50%); opacity: 0; }
   to { transform: translateY(0) translateX(-50%); opacity: 1; }
+}
+
+/* ─── Active nav indicator (A-03) ───────────────────────────────────────── */
+.nav-item {
+  position: relative;
+}
+.nav-item.active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 0 0 3px 3px;
+}
+
+.sidebar-item.active {
+  border-left: 3px solid white;
+  padding-left: calc(1rem - 3px);
+}
+
+/* ─── Interactive stat cards (L-04) ─────────────────────────────────────── */
+.stat-card-interactive {
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  user-select: none;
+}
+.stat-card-interactive:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
+}
+.stat-card-interactive:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.stat-card-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px rgba(26, 54, 93, 0.18);
+}
+.stat-card-active .label { color: var(--primary); }
+
+/* ─── Offline banner (M-01) ─────────────────────────────────────────────── */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--warning);
+  color: white;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+  z-index: 150;
+}
+
+@media (min-width: 768px) {
+  .offline-banner {
+    left: var(--sidebar-w);
+  }
 }

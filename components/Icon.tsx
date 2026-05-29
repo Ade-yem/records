@@ -27,6 +27,8 @@ export {
   Package as PackageIcon,
   UserPlus as UserPlusIcon,
   X as CloseIcon,
+  Eye as EyeIcon,
+  EyeOff as EyeOffIcon,
 } from "lucide-react";
 
 export type { LucideIcon as IconComponent } from "lucide-react";

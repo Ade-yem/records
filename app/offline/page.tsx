@@ -5,7 +5,7 @@ export default function OfflinePage() {
     <div style={{
       minHeight: "100dvh", display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center", padding: "2rem",
-      background: "var(--bg)", color: "var(--text-primary)", textAlign: "center",
+      background: "var(--bg-app)", color: "var(--text-primary)", textAlign: "center",
     }}>
       <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📡</div>
       <h1 style={{ marginBottom: "0.5rem" }}>You&apos;re offline</h1>

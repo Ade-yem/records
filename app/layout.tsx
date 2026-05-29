@@ -7,6 +7,7 @@ import { ServiceWorkerInit } from "@/components/ServiceWorkerInit";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { UserProvider } from "@/components/UserProvider";
 import { ToastProvider } from "@/components/ToastProvider";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import type { CurrentUser, UserRole } from "@/lib/types";
 
 const outfit = Outfit({
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="app-container">
         <ServiceWorkerInit />
         <InstallPrompt />
+        <OfflineBanner />
         <UserProvider user={currentUser}>
           <ToastProvider>
             {currentUser && <Navigation />}

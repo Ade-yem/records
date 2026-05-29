@@ -12,6 +12,7 @@ import { SkeletonList } from "@/components/Skeleton";
 import { Autocomplete, makeCustomerSuggestionFetcher } from "@/components/Autocomplete";
 import { AddDebtModal } from "@/components/modals/AddDebtModal";
 import { RecordPaymentModal } from "@/components/modals/RecordPaymentModal";
+import { EditDebtModal } from "@/components/modals/EditDebtModal";
 import { LedgerIcon, PlusIcon } from "@/components/Icon";
 import { apiGet, ApiError, type ListResponse } from "@/lib/api/client";
 import { fmt, timeAgo } from "@/lib/utils";
@@ -60,6 +61,8 @@ export default function LedgerPage() {
   const [date, setDate] = useState(getTodayString());
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<DebtEntry | null>(null);
+  const [editing, setEditing] = useState<DebtEntry | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "outstanding" | "cleared">("all");
 
   // Debounce search to optimize API performance and database queries
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -101,7 +104,7 @@ export default function LedgerPage() {
     }
   }, []);
 
-  const { totalBalance, outstanding } = useMemo(() => {
+  const { totalBalance, outstanding, filteredEntries } = useMemo(() => {
     let total = 0;
     let out = 0;
     for (const e of entries) {
@@ -109,8 +112,17 @@ export default function LedgerPage() {
       total += b;
       if (b > 0) out += 1;
     }
-    return { totalBalance: total, outstanding: out };
-  }, [entries]);
+    const filtered =
+      statusFilter === "outstanding"
+        ? entries.filter((e) => Number(e.balance) > 0)
+        : statusFilter === "cleared"
+        ? entries.filter((e) => Number(e.balance) <= 0)
+        : entries;
+    return { totalBalance: total, outstanding: out, filteredEntries: filtered };
+  }, [entries, statusFilter]);
+
+  const toggleStatusFilter = (f: "outstanding" | "cleared") =>
+    setStatusFilter((prev) => (prev === f ? "all" : f));
 
   return (
     <>
@@ -137,9 +149,9 @@ export default function LedgerPage() {
         />
 
         <section className="stat-grid">
-          <StatCard label="Total entries" value={entries.length} />
-          <StatCard label="Outstanding" value={outstanding} tone="warning" />
-          <StatCard label="Cleared" value={entries.length - outstanding} tone="success" />
+          <StatCard label="Total entries" value={entries.length} onClick={() => setStatusFilter("all")} active={statusFilter === "all"} />
+          <StatCard label="Outstanding" value={outstanding} tone="warning" onClick={() => toggleStatusFilter("outstanding")} active={statusFilter === "outstanding"} />
+          <StatCard label="Cleared" value={entries.length - outstanding} tone="success" onClick={() => toggleStatusFilter("cleared")} active={statusFilter === "cleared"} />
         </section>
 
         <div style={{ display: "flex", gap: "1rem", marginBottom: search && !date ? "0.5rem" : "1.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -165,7 +177,7 @@ export default function LedgerPage() {
             onChange={(e) => handleDateChange(e.target.value)}
             style={{ flex: 1, minWidth: 150, opacity: search ? 0.45 : 1, transition: "opacity 0.2s" }}
             aria-label="Filter by date"
-            aria-disabled={!!search}
+            disabled={!!search}
             title={search ? "Date filter is paused while searching by name" : undefined}
           />
           {date && date !== getTodayString() ? (
@@ -245,17 +257,27 @@ export default function LedgerPage() {
 
         {loading ? (
           <SkeletonList rows={4} rowHeight={140} />
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <EmptyState
             icon={LedgerIcon}
-            title={search ? "No records found" : "No entries found today"}
+            title={
+              statusFilter !== "all"
+                ? `No ${statusFilter} entries`
+                : search
+                ? "No records found"
+                : "No entries found today"
+            }
             description={
-              search
+              statusFilter !== "all"
+                ? `No ${statusFilter} entries match the current filters.`
+                : search
                 ? `There are no recorded debts registered under "${search}".`
                 : "No transactions or active debt entries were registered for today's date."
             }
             action={
-              search ? (
+              statusFilter !== "all" ? (
+                <Button variant="ghost" onClick={() => setStatusFilter("all")}>Show all entries</Button>
+              ) : search ? (
                 <Button variant="primary" onClick={() => setShowAdd(true)}>
                   Create Debt for {search}
                 </Button>
@@ -275,7 +297,7 @@ export default function LedgerPage() {
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {entries.map((e, idx) => {
+            {filteredEntries.map((e, idx) => {
               const balance = Number(e.balance);
               const cleared = balance <= 0;
               const cardBg = idx % 2 === 0 ? "var(--row-white)" : "var(--row-blue)";
@@ -308,6 +330,11 @@ export default function LedgerPage() {
                       <div className="ledger-meta">
                         {e.creatorName} • {timeAgo(e.createdAt)}
                       </div>
+                      {e.notes ? (
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 2, fontStyle: "italic" }}>
+                          {e.notes}
+                        </div>
+                      ) : null}
                     </div>
                     <Badge variant={cleared ? "success" : "danger"}>{cleared ? "Cleared" : "Outstanding"}</Badge>
                   </div>
@@ -373,6 +400,26 @@ export default function LedgerPage() {
         onSaved={() => {
           load();
           toast.success("Payment recorded");
+        }}
+        onDeleted={() => {
+          load();
+          setSelected(null);
+          toast.success("Entry deleted");
+        }}
+        onEdit={(entry) => {
+          setSelected(null);
+          setEditing(entry);
+        }}
+      />
+
+      <EditDebtModal
+        key={editing?.id}
+        open={editing !== null}
+        entry={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          load();
+          toast.success("Debt entry updated");
         }}
       />
     </>

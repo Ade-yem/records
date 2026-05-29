@@ -36,6 +36,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<AdminUser | null>(null);
+  const [roleChangeTarget, setRoleChangeTarget] = useState<{ user: AdminUser; newRole: UserRole } | null>(null);
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
@@ -56,14 +57,22 @@ export default function AdminUsersPage() {
     load();
   }, [load]);
 
-  const handleChangeRole = async (user: AdminUser, newRole: UserRole) => {
+  const handleChangeRole = (user: AdminUser, newRole: UserRole) => {
     if (newRole === user.role) return;
+    setRoleChangeTarget({ user, newRole });
+  };
+
+  const handleConfirmRoleChange = async () => {
+    const target = roleChangeTarget;
+    if (!target) return;
     try {
-      await apiPatch(`/api/admin/users/${user.id}`, { action: "set_role", role: newRole });
-      toast.success(`${user.name}'s role updated to ${ROLE_LABEL[newRole]}`);
+      await apiPatch(`/api/admin/users/${target.user.id}`, { action: "set_role", role: target.newRole });
+      toast.success(`${target.user.name}'s role updated to ${ROLE_LABEL[target.newRole]}`);
       load();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to update role");
+    } finally {
+      setRoleChangeTarget(null);
     }
   };
 
@@ -215,6 +224,20 @@ export default function AdminUsersPage() {
         destructive={!confirmTarget?.banned}
         onConfirm={handleToggleAccess}
         onCancel={() => setConfirmTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={roleChangeTarget !== null}
+        title="Change role?"
+        description={
+          roleChangeTarget
+            ? `Change ${roleChangeTarget.user.name}'s role from ${ROLE_LABEL[roleChangeTarget.user.role]} to ${ROLE_LABEL[roleChangeTarget.newRole]}?`
+            : ""
+        }
+        confirmLabel="Change role"
+        destructive={false}
+        onConfirm={handleConfirmRoleChange}
+        onCancel={() => setRoleChangeTarget(null)}
       />
     </main>
   );

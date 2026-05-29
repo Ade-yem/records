@@ -24,8 +24,16 @@ export const createDebtSchema = z.object({
 });
 
 export const recordPaymentSchema = z.object({
+  action: z.literal("payment").optional(),
   amount: z.number().positive().finite().max(1_000_000_000),
   note: z.string().trim().max(2000).optional(),
+});
+
+export const editDebtSchema = z.object({
+  action: z.literal("edit"),
+  customerName: z.string().trim().min(1).max(200).optional(),
+  totalDebt: z.number().positive().finite().max(1_000_000_000).optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
 });
 
 // ─── Inventory ──────────────────────────────────────────────────────────────
