@@ -57,6 +57,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
         className="form-input"
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
+        inputMode={rest.inputMode ?? (rest.type === "number" ? "decimal" : undefined)}
         {...rest}
       />
     </Field>
@@ -95,6 +96,8 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
 ) {
   const autoId = useId();
   const fieldId = id ?? autoId;
+  const charCount = typeof rest.value === "string" ? rest.value.length : null;
+  const showCounter = rest.maxLength != null && charCount !== null;
   return (
     <Field id={fieldId} label={label} hint={hint} error={error}>
       <textarea
@@ -105,6 +108,20 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
         aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
         {...rest}
       />
+      {showCounter ? (
+        <div
+          style={{
+            fontSize: "0.72rem",
+            color: charCount! >= rest.maxLength! ? "var(--danger)" : "var(--text-muted)",
+            textAlign: "right",
+            marginTop: 3,
+          }}
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {charCount}/{rest.maxLength}
+        </div>
+      ) : null}
     </Field>
   );
 });

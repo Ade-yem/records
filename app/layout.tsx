@@ -61,6 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="app-container">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <ServiceWorkerInit />
         <InstallPrompt />
         <OfflineBanner />

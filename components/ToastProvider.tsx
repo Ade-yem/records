@@ -103,6 +103,8 @@ export function ToastProvider({ children, duration = 3000 }: { children: ReactNo
               key={t.id}
               role={t.variant === "danger" ? "alert" : "status"}
               aria-live={t.variant === "danger" ? "assertive" : "polite"}
+              onClick={() => dismiss(t.id)}
+              title="Click to dismiss"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -114,6 +116,8 @@ export function ToastProvider({ children, duration = 3000 }: { children: ReactNo
                 boxShadow: "var(--shadow-lg)",
                 fontWeight: 600,
                 fontSize: "0.9rem",
+                cursor: "pointer",
+                userSelect: "none",
               }}
             >
               <Icon size={18} aria-hidden />

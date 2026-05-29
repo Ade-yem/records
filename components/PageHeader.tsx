@@ -10,6 +10,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, actions, aside }: PageHeaderProps) {
   return (
     <header
+      id="main-content"
       className="page-header"
       style={{ flexWrap: "wrap", gap: "1rem", rowGap: "0.75rem" }}
     >

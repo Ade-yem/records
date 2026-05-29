@@ -18,6 +18,7 @@ import { apiGet, ApiError, type ListResponse } from "@/lib/api/client";
 import { fmt } from "@/lib/utils";
 import { TimeAgo } from "@/components/TimeAgo";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useSearchShortcut } from "@/lib/hooks/useSearchShortcut";
 import { User, Calendar } from "lucide-react";
 import type { DebtEntry } from "@/lib/types";
 
@@ -56,8 +57,11 @@ const formatShortDate = (dateStr: string) => {
 
 export default function LedgerPage() {
   const toast = useToast();
+  const searchRef = useSearchShortcut();
   const [entries, setEntries] = useState<DebtEntry[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState("");
   const [date, setDate] = useState(getTodayString());
   const [showAdd, setShowAdd] = useState(false);
@@ -65,7 +69,6 @@ export default function LedgerPage() {
   const [editing, setEditing] = useState<DebtEntry | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "outstanding" | "cleared">("all");
 
-  // Debounce search to optimize API performance and database queries
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
@@ -75,12 +78,29 @@ export default function LedgerPage() {
         query: { name: debouncedSearch || undefined, date: date || undefined },
       });
       setEntries(data.items);
+      setNextCursor(data.nextCursor ?? null);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load entries");
     } finally {
       setLoading(false);
     }
   }, [debouncedSearch, date, toast]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await apiGet<ListResponse<DebtEntry>>("/api/debt", {
+        query: { name: debouncedSearch || undefined, date: date || undefined, cursor: nextCursor },
+      });
+      setEntries((prev) => [...prev, ...data.items]);
+      setNextCursor(data.nextCursor ?? null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore, debouncedSearch, date, toast]);
 
   useEffect(() => {
     load();
@@ -156,12 +176,12 @@ export default function LedgerPage() {
         </section>
 
         <div style={{ display: "flex", gap: "1rem", marginBottom: search && !date ? "0.5rem" : "1.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ flex: 2, minWidth: 200 }}>
+          <div ref={searchRef} style={{ flex: 2, minWidth: 200 }}>
             <Autocomplete<string>
               label="Search customers"
               hideLabel
               inputType="search"
-              placeholder="Search by customer name..."
+              placeholder="Search by customer name…  ( / )"
               showSearchIcon
               value={search}
               onChange={handleSearchChange}
@@ -382,6 +402,14 @@ export default function LedgerPage() {
             })}
           </div>
         )}
+
+        {nextCursor && !loading ? (
+          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+            <Button variant="ghost" onClick={loadMore} loading={loadingMore} loadingText="Loading…">
+              Load more entries
+            </Button>
+          </div>
+        ) : null}
       </main>
 
       <button className="fab" onClick={() => setShowAdd(true)} aria-label="New debt entry">

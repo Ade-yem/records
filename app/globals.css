@@ -600,6 +600,25 @@ h3 { font-size: 1.1rem;    font-weight: 600; color: var(--text-primary); }
   to { transform: translateY(0) translateX(-50%); opacity: 1; }
 }
 
+/* ─── Skip-to-content link (A-01) ───────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0.75rem;
+  background: var(--primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 9999;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
 /* ─── Interactive card focus ring (A-01) ────────────────────────────────── */
 .card[role="button"]:focus-visible {
   outline: 2px solid var(--primary);

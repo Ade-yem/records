@@ -16,7 +16,10 @@ import { UpdateStockModal } from "@/components/modals/UpdateStockModal";
 import { PlusIcon, RestockedIcon } from "@/components/Icon";
 import { TimeAgo } from "@/components/TimeAgo";
 import { apiGet, ApiError, type ListResponse } from "@/lib/api/client";
+import { useSearchShortcut } from "@/lib/hooks/useSearchShortcut";
 import type { InventoryItem, StockStatus } from "@/lib/types";
+
+type SortKey = "newest" | "oldest" | "name-asc" | "name-desc";
 
 function StatusBadge({ status }: { status: StockStatus }) {
   if (status === "LOW_STOCK") return <Badge variant="warning">Low stock</Badge>;
@@ -29,11 +32,13 @@ type StatusFilter = "all" | "OUT_OF_STOCK" | "LOW_STOCK" | "RESTOCKED";
 export default function InventoryPage() {
   const toast = useToast();
   const isAdmin = useIsAdmin();
+  const searchRef = useSearchShortcut();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<SortKey>("newest");
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<InventoryItem | null>(null);
 
@@ -84,8 +89,13 @@ export default function InventoryPage() {
     if (q) {
       result = result.filter((i) => i.itemName.toLowerCase().includes(q));
     }
-    return result;
-  }, [items, statusFilter, search]);
+    return [...result].sort((a, b) => {
+      if (sort === "name-asc") return a.itemName.localeCompare(b.itemName);
+      if (sort === "name-desc") return b.itemName.localeCompare(a.itemName);
+      if (sort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // newest
+    });
+  }, [items, statusFilter, search, sort]);
 
   const toggleStatus = (s: Exclude<StatusFilter, "all">) => {
     if (s === "RESTOCKED" && !showAll) {
@@ -140,19 +150,33 @@ export default function InventoryPage() {
           />
         </section>
 
-        <div style={{ marginBottom: "1.5rem" }}>
-          <Autocomplete<string>
-            label="Search inventory"
-            hideLabel
-            inputType="search"
-            placeholder="Search by item name..."
-            showSearchIcon
-            value={search}
-            onChange={setSearch}
-            fetchSuggestions={localFetch}
-            renderOption={(s) => s}
-            getOptionLabel={(s) => s}
-          />
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", alignItems: "center" }}>
+          <div ref={searchRef} style={{ flex: 1 }}>
+            <Autocomplete<string>
+              label="Search inventory"
+              hideLabel
+              inputType="search"
+              placeholder="Search by item name…  ( / )"
+              showSearchIcon
+              value={search}
+              onChange={setSearch}
+              fetchSuggestions={localFetch}
+              renderOption={(s) => s}
+              getOptionLabel={(s) => s}
+            />
+          </div>
+          <select
+            className="form-select"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            aria-label="Sort inventory"
+            style={{ width: "auto", flexShrink: 0 }}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+          </select>
         </div>
 
         {loading ? (

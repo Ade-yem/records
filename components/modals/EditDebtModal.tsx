@@ -71,6 +71,7 @@ export function EditDebtModal({ open, entry, onClose, onSaved }: EditDebtModalPr
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
+          maxLength={2000}
         />
 
         <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>

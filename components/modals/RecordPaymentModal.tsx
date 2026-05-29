@@ -171,6 +171,7 @@ export function RecordPaymentModal({ open, entry, onClose, onSaved, onDeleted, o
           placeholder="e.g. part payment"
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          maxLength={2000}
         />
 
         <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>

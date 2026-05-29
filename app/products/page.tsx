@@ -14,16 +14,21 @@ import { ProductModal } from "@/components/modals/ProductModal";
 import { EditIcon, PlusIcon, PricesIcon, TrashIcon } from "@/components/Icon";
 import { apiGet, apiDelete, ApiError, type ListResponse } from "@/lib/api/client";
 import { fmt } from "@/lib/utils";
+import { useSearchShortcut } from "@/lib/hooks/useSearchShortcut";
 import type { Product } from "@/lib/types";
+
+type SortKey = "name-asc" | "name-desc" | "price-unit-asc" | "price-unit-desc";
 
 export default function ProductsPage() {
   const canEdit = useCanEditProducts();
   const isAdmin = useIsAdmin();
   const toast = useToast();
 
+  const searchRef = useSearchShortcut();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("name-asc");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
@@ -48,9 +53,14 @@ export default function ProductsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, search]);
+    let result = q ? products.filter((p) => p.name.toLowerCase().includes(q)) : products;
+    return [...result].sort((a, b) => {
+      if (sort === "name-desc") return b.name.localeCompare(a.name);
+      if (sort === "price-unit-asc") return Number(a.priceUnit) - Number(b.priceUnit);
+      if (sort === "price-unit-desc") return Number(b.priceUnit) - Number(a.priceUnit);
+      return a.name.localeCompare(b.name); // name-asc default
+    });
+  }, [products, search, sort]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -90,19 +100,33 @@ export default function ProductsPage() {
           }
         />
 
-        <div style={{ marginBottom: "1.5rem" }}>
-          <Autocomplete<string>
-            label="Search products"
-            hideLabel
-            inputType="search"
-            placeholder="Search items..."
-            showSearchIcon
-            value={search}
-            onChange={setSearch}
-            fetchSuggestions={localFetch}
-            renderOption={(s) => s}
-            getOptionLabel={(s) => s}
-          />
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", alignItems: "center" }}>
+          <div ref={searchRef} style={{ flex: 1 }}>
+            <Autocomplete<string>
+              label="Search products"
+              hideLabel
+              inputType="search"
+              placeholder="Search items…  ( / )"
+              showSearchIcon
+              value={search}
+              onChange={setSearch}
+              fetchSuggestions={localFetch}
+              renderOption={(s) => s}
+              getOptionLabel={(s) => s}
+            />
+          </div>
+          <select
+            className="form-select"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            aria-label="Sort products"
+            style={{ width: "auto", flexShrink: 0 }}
+          >
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="price-unit-asc">Price ↑</option>
+            <option value="price-unit-desc">Price ↓</option>
+          </select>
         </div>
 
         {loading ? (
