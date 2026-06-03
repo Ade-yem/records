@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signInWithEmail } from "./actions";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { EyeIcon, EyeOffIcon } from "@/components/Icon";
 
-export default function SignInPage() {
+function SignInForm() {
   const [state, formAction, isPending] = useActionState(signInWithEmail, null);
   const [showPassword, setShowPassword] = useState(false);
+  const searchParams = useSearchParams();
+  const justReset = searchParams.get("reset") === "1";
 
   return (
     <div className="auth-page">
@@ -22,6 +26,10 @@ export default function SignInPage() {
         </div>
 
         <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {justReset ? (
+            <Alert variant="success">Password reset — sign in with your new password.</Alert>
+          ) : null}
+
           <div>
             <label htmlFor="email" className="ledger-amount-label" style={{ display: "block", marginBottom: 6 }}>
               Email address
@@ -39,9 +47,17 @@ export default function SignInPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="ledger-amount-label" style={{ display: "block", marginBottom: 6 }}>
-              Password
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <label htmlFor="password" className="ledger-amount-label">
+                Password
+              </label>
+              <Link
+                href="/auth/forgot-password"
+                style={{ fontSize: "0.78rem", color: "var(--primary)", textDecoration: "none" }}
+              >
+                Forgot password?
+              </Link>
+            </div>
             <div style={{ position: "relative" }}>
               <input
                 id="password"
@@ -89,5 +105,13 @@ export default function SignInPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="auth-page"><main className="auth-card" /></div>}>
+      <SignInForm />
+    </Suspense>
   );
 }
