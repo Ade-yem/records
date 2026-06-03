@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signInWithEmail } from "./actions";
@@ -8,7 +8,7 @@ import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { EyeIcon, EyeOffIcon } from "@/components/Icon";
 
-export default function SignInPage() {
+function SignInForm() {
   const [state, formAction, isPending] = useActionState(signInWithEmail, null);
   const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
@@ -105,5 +105,13 @@ export default function SignInPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="auth-page"><main className="auth-card" /></div>}>
+      <SignInForm />
+    </Suspense>
   );
 }

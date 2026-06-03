@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { resetPassword } from "./actions";
@@ -8,7 +8,7 @@ import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { EyeIcon, EyeOffIcon } from "@/components/Icon";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
 
@@ -152,5 +152,13 @@ export default function ResetPasswordPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="auth-page"><main className="auth-card" /></div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

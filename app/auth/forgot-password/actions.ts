@@ -10,7 +10,7 @@ export async function requestPasswordReset(
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   if (!email) return { error: "Email is required." };
 
-  const { error } = await auth.forgetPassword.emailOtp({ email });
+  const { error } = await auth.emailOtp.sendVerificationOtp({ email, type: "forget-password" });
   if (error) return { error: error.message || "Could not send reset code. Please try again." };
 
   redirect(`/auth/reset-password?email=${encodeURIComponent(email)}`);
