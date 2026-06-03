@@ -77,9 +77,9 @@ export async function resetPassword(
     }
 
     // Success — redirect to sign-in
-    redirect("/auth/sign-in?reset=1");
   } catch (err) {
     const message = err instanceof Error ? err.message : "An unexpected error occurred.";
     return { error: message };
   }
+redirect("/auth/sign-in?reset=1");
 }
