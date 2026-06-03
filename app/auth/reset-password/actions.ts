@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 /**
  * Helper to build the Neon Auth base URL correctly.
@@ -30,12 +31,22 @@ export async function resetPassword(
 
   try {
     const baseUrl = getNeonAuthBaseUrl();
-    
+
+    // Forward the Origin header from the browser request.
+    // Better Auth requires it to validate the request came from a trusted origin.
+    // Without it you get: "Origin header is required when callbackURL is not an absolute URL"
+    const incomingHeaders = await headers();
+    const origin =
+      incomingHeaders.get("origin") ??
+      (incomingHeaders.get("host")
+        ? `https://${incomingHeaders.get("host")}`
+        : "");
+
     /**
      * WORKAROUND: @neondatabase/auth@0.4.1-beta has a bug in the next/server adapter.
      * The auth.emailOtp.resetPassword() method is hardcoded to POST to "email-otp/passcode"
      * which doesn't exist on the backend. The correct endpoint is "email-otp/reset-password".
-     * 
+     *
      * This directly calls the correct endpoint instead of using the broken SDK method.
      * Issue will be fixed in a future release. See: https://github.com/neondatabase/auth
      */
@@ -43,13 +54,14 @@ export async function resetPassword(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(origin ? { Origin: origin } : {}),
       },
       body: JSON.stringify({ email, otp, password }),
     });
 
     if (!response.ok) {
       let errorMessage = "Invalid or expired code. Please try again.";
-      
+
       try {
         const data = await response.json();
         if (data.message) {
